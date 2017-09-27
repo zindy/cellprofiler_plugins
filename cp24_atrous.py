@@ -58,7 +58,7 @@ import cellprofiler.settings as cps
 # Also, you can't misspell it by accident.
 ###################################
 
-ATROUS_CHOICES = libatrous.get_names() #["Linear 3x3", "B-Spline 5x5"]
+KERNEL_CHOICES = libatrous.get_names() #["Linear 3x3", "B-Spline 5x5"]
 
 ###################################
 #
@@ -125,23 +125,23 @@ class Atrous(cpm.CPModule):
         # can be done.
         #
 
-        n_kernel = len(ATROUS_CHOICES)
+        n_kernel = len(KERNEL_CHOICES)
         doc = "Choose which kernel to filter with: <ul>"
         for i in range(n_kernel):
             kernel = libatrous.get_kernel(i)
-            doc += "<li><i>%s:</i> %s</li>" % (ATROUS_CHOICES[i],str(kernel))
+            doc += "<li><i>%s:</i> %s</li>" % (KERNEL_CHOICES[i],str(kernel))
         doc += "</ul>"
 
         self.atrous_choice = cps.Choice(
             "Kernel type:",
             # The choice takes a list of possibilities. The first one
             # is the default - the one the user will typically choose.
-            ATROUS_CHOICES,
+            KERNEL_CHOICES,
             #
             # Here, in the documentation, we do a little trick so that
             # we use the actual text that's displayed in the documentation.
             #
-            # %(ATROUS_CHOICES[0])s will get changed into "Linear 3x3"
+            # %(KERNEL_CHOICES[0])s will get changed into "Linear 3x3"
             # etc. Python will look in globals() for the "ATROUS_" names
             # and paste them in where it sees %(ATROUS_...)s
             #
@@ -267,7 +267,7 @@ class Atrous(cpm.CPModule):
         #
         # Get the wavelet parameters
         #
-        kernel_index = ATROUS_CHOICES.index(self.atrous_choice)
+        kernel_index = KERNEL_CHOICES.index(self.atrous_choice)
         kernel = libatrous.get_kernel(kernel_index)
 
         low_scale,high_scale = self.atrous_scalerange.value
