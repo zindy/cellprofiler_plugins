@@ -151,7 +151,7 @@ class Atrous(cpm.CPModule):
         )
 
         self.atrous_scalerange = cps.IntegerRange(
-           "Band-pass filter width (smallest / largest scale):", (1, 10),
+           "Band-pass filter width (smallest / largest scale):", (1, 8),
            minval=1, maxval=10,
            doc="""The smallest and largest scale to include in the filter determine the width
            of the band-pass filter. Single scale filters are entered by using the same scale
