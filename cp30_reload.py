@@ -1,3 +1,14 @@
+# All credit and copyright Lee Kamentsky:
+#
+# I tried Ray's suggestion out with the release version of CellProfiler.
+# I put in a couple tweaks, including getting wx to run the reloading outside of the module code. It works -
+# you have to reload your pipeline afterwards or delete and reinsert the module to see the changes.
+#
+# The attached module is what I came up with...
+# https://groups.google.com/a/broadinstitute.org/forum/#!msg/cellprofiler-dev/Jt2EQOxAcJc/LMGFsbb3h6kJ
+#
+# Adapted for CP30 (Egor Zindy)
+
 import cellprofiler.module as cpm
 import cellprofiler.pipeline as cpp
 import cellprofiler.setting as cps
