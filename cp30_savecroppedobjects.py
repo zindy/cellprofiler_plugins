@@ -65,6 +65,7 @@ class SaveCroppedObjects(cpm.Module):
     variable_revision_number = 1
 
     def create_settings(self):
+
         self.objects_name = cps.ObjectNameSubscriber(
             "Objects",
             doc="Select the objects you want to save."
@@ -92,7 +93,7 @@ The following types of images can be saved as a file on the hard drive:
         self.file_format = cps.Choice(
             "Saved file format",
             [
-                FF_TIFF
+                FF_TIFF,
                 FF_PNG,
                 FF_JPEG,
             ],
