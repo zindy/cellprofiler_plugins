@@ -44,7 +44,8 @@ IF_ALL = [IF_SAVEOBJECTS, IF_SAVEIMAGE]
 
 OF_ALLOBJECTS       = "Save all Objects"
 OF_SPARSEOBJECTS       = "Only save Sparse Objects"
-OF_ALL = [OF_ALLOBJECTS, OF_SPARSEOBJECTS]
+OF_MASKOBJECTS       = "Use objects as masks (zero outside)"
+OF_ALL = [OF_ALLOBJECTS, OF_SPARSEOBJECTS, OF_MASKOBJECTS]
 
 FF_JPEG = "jpeg"
 FF_PNG = "png"
@@ -86,7 +87,7 @@ The following types of images can be saved as a file on the hard drive:
             "Image to crop",
             # HTML help that gets displayed when the user presses the
             # help button to the right of the edit box
-            doc = """This is the image the module will cookiecut from. You can
+            doc = """This is the image the module will cookie-cut from. You can
             choose any image that is made available by a prior module.
             """)
         
@@ -215,7 +216,7 @@ between the various operating systems.
 
     def run(self, workspace):
         save_objects = self.save_type.value == IF_SAVEOBJECTS
-        save_sparse = self.objects_type.value == OF_SPARSEOBJECTS
+        save_sparse_index = self.objects_type.value
 
 
         objects = workspace.object_set.get_objects(self.objects_name.value)
@@ -279,11 +280,12 @@ between the various operating systems.
                 if ymax > ny-1: ymax = ny-1
 
                 if xmin < 0: xmin=0
-                if xmax > nx-1: ymax = nx-1
+                if xmax > nx-1: xmax = nx-1
 
-                pixels = orig_image.pixel_data[ymin:ymax+1,xmin:xmax+1,...]
+                pixels = orig_image.pixel_data[ymin:ymax+1,xmin:xmax+1,...].copy()
 
-                if save_sparse:
+                if save_sparse_index == OF_SPARSEOBJECTS:
+                    #Here we are looking at a crop in the label images to check where there are any non-zero values on the borders
                     crop_mask = labels[ymin:ymax+1,xmin:xmax+1,...].astype(np.int)
 
                     v = np.sum(crop_mask,axis=0)
@@ -293,6 +295,11 @@ between the various operating systems.
                     v = np.sum(crop_mask,axis=1)
                     if v[0] > 0 or v[-1] > 0:
                         continue
+
+                elif save_sparse_index == OF_MASKOBJECTS:
+                    #Zero all the image outside the object
+                    crop_mask = np.invert(mask[ymin:ymax+1,xmin:xmax+1,...])
+                    pixels[crop_mask,...] = 0
 
                 if bit_depth == BIT_DEPTH_8:
                     pixels  = pixels*255.
@@ -308,7 +315,7 @@ between the various operating systems.
                 else:
                     pixels = skimage.util.img_as_float(pixels).astype(numpy.float32)
 
-                skimage.io.imsave(filename, pixels)
+                skimage.io.imsave(filename, pixels) #crop_mask.astype(np.uint8)*255)
 
 
             filenames.append(filename)
