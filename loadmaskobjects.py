@@ -1,6 +1,7 @@
 import numpy as np
 from cellprofiler_core.module.image_segmentation import ImageSegmentation
 from cellprofiler_core.setting import Binary
+from cellprofiler_core.setting.choice import Choice
 from cellprofiler_core.setting.text import Integer
 from cellprofiler_core.setting.subscriber import ImageSubscriber, FileImageSubscriber
 from cellprofiler_core.object import Objects
@@ -35,6 +36,11 @@ YES          YES          NO
     **{"HELP_BINARY_IMAGE": HELP_BINARY_IMAGE}
 )
 
+OPTION_PRIO_ZIP = "Multi-ROI (.zip) files"
+OPTION_PRIO_ROI = "Single ROI (.roi) files"
+
+OPTION_MISSING_FULL = "Output is whole image"
+OPTION_MISSING_BLANK = "No object is output"
 
 class LoadMaskObjects(ImageSegmentation):
     category = "Object Processing"
@@ -45,18 +51,57 @@ class LoadMaskObjects(ImageSegmentation):
 
     def create_settings(self):
         super(LoadMaskObjects, self).create_settings()
+        
+        self.priority_option = Choice(
+            "Priority given to",
+            [OPTION_PRIO_ZIP, OPTION_PRIO_ROI],
+            doc="""\
+This helps solving conflicts when both a .zip and a .roi files is found.
+You can choose one of the following options:
+
+-  *%(OPTION_PRIO_ZIP)s:* Prioritize .zip files ahead of .roi
+-  *%(OPTION_PRIO_ROI)s:* Prioritize .roi files ahead of .zip"""
+            % globals(),
+        )
+
+        self.missing_option = Choice(
+            "If no file is found:",
+            [OPTION_MISSING_FULL, OPTION_MISSING_BLANK],
+            doc="""\
+This defines the behavior when no file is found.
+You can choose one of the following options:
+
+-  *%(OPTION_MISSING_FULL)s:* An object will be generated to cover the whole image.
+-  *%(OPTION_MISSING_BLANK)s:* No objects will be output."""
+            % globals(),
+        )
+
+        self.wants_single_label = Binary(
+            "Single label output?",
+            False,
+            doc="""\
+Select *Yes* to give multiple objects the same label.
+
+By default, if multiple ROIs are read from a zip file, each is given
+its own label."""
+            % globals(),
+        )
 
     def settings(self):
         __settings__ = super(LoadMaskObjects, self).settings()
-        return __settings__
+        return __settings__ + [self.priority_option, self.missing_option, self.wants_single_label]
 
     def visible_settings(self):
         __settings__ = super(LoadMaskObjects, self).visible_settings()
-        return __settings__
+        return __settings__ + [self.priority_option, self.missing_option, self.wants_single_label]
 
     def run(self, workspace):
         x_name = self.x_name.value
         y_name = self.y_name.value
+
+        priority_zip = self.priority_option == OPTION_PRIO_ZIP
+        missing_is_blank = self.missing_option == OPTION_MISSING_BLANK
+        single_label = self.wants_single_label.value
 
         #Here we get the input image dimensions
         images = workspace.image_set
@@ -76,7 +121,9 @@ class LoadMaskObjects(ImageSegmentation):
         x_filename = measurements.get_current_image_measurement(name_feature)
 
         y_data = load_masks(
-                os.path.join(x_path, x_filename) , shape)
+                os.path.join(x_path, x_filename) , shape,
+                priority_zip=priority_zip, missing_is_blank=missing_is_blank,
+                single_label=single_label)
 
         y = Objects()
         y.segmented = y_data
@@ -141,23 +188,39 @@ def create_polygon(shape,poly_verts):
     return grid
 
 
-def load_masks(filename, dimensions):
+def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, single_label=False):
+
+    print(priority_zip)
+    print(missing_is_blank)
+    print(single_label)
+
     data = np.zeros(dimensions, dtype=int)
 
     #Strip the extension, we'll check if there is a zip or a roi...
     filename = os.path.splitext(filename)[0]
 
-    if os.path.exists(filename+'.zip'):
-        dic_roi = read_roi.read_roi_zip(filename+'.zip')
-    elif os.path.exists(filename+'.roi'):
-        dic_roi = read_roi.read_roi_file(filename+'.roi')
-    else:
-        # TODO what to do if can't find a ROI file?
-        # have a flag to whether to return an empty or a full image mask
-        # for now, return a full image mask
-        data = np.ones(dimensions, dtype=int)
+    search_list = [filename+'.zip', filename+'.roi']
+    if priority_zip == False:
+        search_list = search_list[::-1]
+
+    dic_roi = None
+    for fn in search_list:
+        print("doing",fn)
+
+        if os.path.exists(fn) and fn.endswith('.zip'):
+            dic_roi = read_roi.read_roi_zip(fn)
+            break
+        elif os.path.exists(fn) and fn.endswith('.roi'):
+            dic_roi = read_roi.read_roi_file(fn)
+            break
+
+    if dic_roi is None:
+        # Here we check the value of missing_is_blank
+        if missing_is_blank == False:
+            data = np.ones(dimensions, dtype=int)
         return data
 
+    # Now we can look through the rois:
     for i, (k,r) in enumerate(dic_roi.items()):
         if r['type'] == 'polygon':
             x = r['x']
@@ -174,8 +237,7 @@ def load_masks(filename, dimensions):
             continue
 
         vertices = np.vstack([x,y]).T
-        data = np.where( create_polygon(dimensions,vertices), i+1, data)
+        label = 1 if single_label == True else i+1
+        data = np.where( create_polygon(dimensions,vertices), label, data)
 
     return data
-
-
