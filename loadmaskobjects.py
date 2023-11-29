@@ -215,7 +215,7 @@ def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, 
 
     # Now we can look through the rois:
     for i, (k,r) in enumerate(dic_roi.items()):
-        if r['type'] == 'polygon':
+        if r['type'] == 'polygon' or r['type'] == 'freehand':
             x = r['x']
             y = r['y']
         elif r['type'] == 'oval':
