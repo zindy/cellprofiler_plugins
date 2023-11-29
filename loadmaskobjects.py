@@ -65,7 +65,7 @@ You can choose one of the following options:
         )
 
         self.missing_option = Choice(
-            "If no file is found:",
+            "If no file is found",
             [OPTION_MISSING_FULL, OPTION_MISSING_BLANK],
             doc="""\
 This defines the behavior when no file is found.
@@ -109,7 +109,6 @@ its own label."""
         x_data = x.pixel_data
         dimensions = x.dimensions
         shape = x_data.shape
-        print(dimensions, shape)
 
         #Here we get the absolute path of the image
         measurements = workspace.measurements
@@ -190,10 +189,6 @@ def create_polygon(shape,poly_verts):
 
 def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, single_label=False):
 
-    print(priority_zip)
-    print(missing_is_blank)
-    print(single_label)
-
     data = np.zeros(dimensions, dtype=int)
 
     #Strip the extension, we'll check if there is a zip or a roi...
@@ -205,8 +200,6 @@ def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, 
 
     dic_roi = None
     for fn in search_list:
-        print("doing",fn)
-
         if os.path.exists(fn) and fn.endswith('.zip'):
             dic_roi = read_roi.read_roi_zip(fn)
             break
