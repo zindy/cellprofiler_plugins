@@ -48,6 +48,10 @@ class LoadMaskObjects(ImageSegmentation):
     module_name = "LoadMaskObjects"
 
     variable_revision_number = 1
+   
+    def __init__(self):
+        print(f"Adding {self.module_name} in \"{self.category}\"")
+        super().__init__()
 
     def create_settings(self):
         super(LoadMaskObjects, self).create_settings()
