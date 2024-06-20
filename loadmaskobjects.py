@@ -85,20 +85,40 @@ You can choose one of the following options:
             "Single label output?",
             False,
             doc="""\
-Select *Yes* to give multiple objects the same label.
+Select *Yes* to give multiple separate ROIs the same label.
 
 By default, if multiple ROIs are read from a zip file, each is given
 its own label."""
             % globals(),
         )
 
+        self.wants_to_split_fragments = Binary(
+            "Split composite ROI fragments?",
+            False,
+            doc="""\
+Select *Yes* to give composite fragments a different label.
+
+By default, all the fragments belonging to the same composite ROI are
+given the same label."""
+            % globals(),
+        )
+
     def settings(self):
         __settings__ = super(LoadMaskObjects, self).settings()
-        return __settings__ + [self.priority_option, self.missing_option, self.wants_single_label]
+        settings = [self.priority_option, self.missing_option, self.wants_single_label,
+                    self.wants_to_split_fragments]
+
+        return __settings__ + settings
 
     def visible_settings(self):
+        single_label = self.wants_single_label.value
         __settings__ = super(LoadMaskObjects, self).visible_settings()
-        return __settings__ + [self.priority_option, self.missing_option, self.wants_single_label]
+        settings = [self.priority_option, self.missing_option, self.wants_single_label]
+
+        if single_label == False:
+           settings += [self.wants_to_split_fragments]
+        
+        return __settings__ + settings
 
     def run(self, workspace):
         x_name = self.x_name.value
@@ -107,6 +127,7 @@ its own label."""
         priority_zip = self.priority_option == OPTION_PRIO_ZIP
         missing_is_blank = self.missing_option == OPTION_MISSING_BLANK
         single_label = self.wants_single_label.value
+        split_fragments = self.wants_to_split_fragments.value
 
         #Here we get the input image dimensions
         images = workspace.image_set
@@ -127,7 +148,7 @@ its own label."""
         y_data = load_masks(
                 os.path.join(x_path, x_filename) , shape,
                 priority_zip=priority_zip, missing_is_blank=missing_is_blank,
-                single_label=single_label)
+                single_label=single_label, split_fragments=split_fragments)
 
         y = Objects()
         y.segmented = y_data
@@ -192,7 +213,7 @@ def create_polygon(shape,poly_verts):
     return grid
 
 
-def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, single_label=False):
+def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, single_label=False, split_fragments=False):
 
     data = np.zeros(dimensions, dtype=int)
 
@@ -220,15 +241,33 @@ def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, 
             data = np.ones(dimensions, dtype=int)
         return data
 
+    #initial label
+    label = 1
+
     # Now we can look through the rois:
     for i, roi in enumerate(roi_list):
         if roi.roitype in [ROI_TYPE.POLYGON, ROI_TYPE.FREEHAND, ROI_TYPE.OVAL, ROI_TYPE.RECT]:
-            print(f"ROI {i+1}: {roi.name} - {roi.roitype}")
-            vertices = roi.coordinates()
             label = 1 if single_label == True else i+1
-            data = np.where( create_polygon(dimensions,vertices), label, data)
+            print(f"ROI {i+1}: {roi.name} - type={roi.roitype} - composite={roi.composite}")
+            if roi.composite:
+                list_vertices = roi.coordinates(True)
+            else:
+                list_vertices = [roi.coordinates()]
+
+            for vertices in list_vertices:
+                data = np.where( create_polygon(dimensions,vertices), label, data)
+
+                if single_label == False and split_fragments == True:
+                    label += 1
+
+            if roi.composite == True:
+                #Either the label value was 1 or it was already incremented
+                continue
+
+            if single_label == False:
+                label += 1
         else:
-            print(f"ROI {i+1}: {roi.name} - Type not implemented {roi.roitype}")
+            print(f"ROI {i+1}: Type not implemented {roi.roitype}")
             print(roi)
 
     return data
