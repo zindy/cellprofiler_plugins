@@ -6,7 +6,8 @@ from cellprofiler_core.setting.text import Integer
 from cellprofiler_core.setting.subscriber import ImageSubscriber, FileImageSubscriber
 from cellprofiler_core.object import Objects
 import os
-import read_roi
+from roifile import ImagejRoi, ROI_TYPE
+
 
 
 HELP_BINARY_IMAGE = """\
@@ -202,39 +203,32 @@ def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, 
     if priority_zip == False:
         search_list = search_list[::-1]
 
-    dic_roi = None
+    roi_list = None
     for fn in search_list:
-        if os.path.exists(fn) and fn.endswith('.zip'):
-            dic_roi = read_roi.read_roi_zip(fn)
-            break
-        elif os.path.exists(fn) and fn.endswith('.roi'):
-            dic_roi = read_roi.read_roi_file(fn)
+        print(f"Opening {fn}")
+        if os.path.exists(fn):
+            roi_list = ImagejRoi.fromfile(fn)
+            if type(roi_list) is not list:
+                roi_list = [roi_list]
+
+            #Data was loaded from the prioritized file, can break now.
             break
 
-    if dic_roi is None:
+    if roi_list is None:
         # Here we check the value of missing_is_blank
         if missing_is_blank == False:
             data = np.ones(dimensions, dtype=int)
         return data
 
     # Now we can look through the rois:
-    for i, (k,r) in enumerate(dic_roi.items()):
-        if r['type'] == 'polygon' or r['type'] == 'freehand':
-            x = r['x']
-            y = r['y']
-        elif r['type'] == 'oval':
-            #'oval', 'left': 53, 'top': 237, 'width': 762, 'height': 739,
-            yc = r['top']+r['height']/2.
-            xc = r['left']+r['width']/2.
-            ir = np.arange(0,2*np.pi,2*np.pi/100.)
-            x = r['width']/2.*np.cos(ir)+xc
-            y = r['height']/2.*np.sin(ir)+yc
+    for i, roi in enumerate(roi_list):
+        if roi.roitype in [ROI_TYPE.POLYGON, ROI_TYPE.FREEHAND, ROI_TYPE.OVAL, ROI_TYPE.RECT]:
+            print(f"ROI {i+1}: {roi.name} - {roi.roitype}")
+            vertices = roi.coordinates()
+            label = 1 if single_label == True else i+1
+            data = np.where( create_polygon(dimensions,vertices), label, data)
         else:
-            print(f"  Could not process {r}: {r['type']}")
-            continue
-
-        vertices = np.vstack([x,y]).T
-        label = 1 if single_label == True else i+1
-        data = np.where( create_polygon(dimensions,vertices), label, data)
+            print(f"ROI {i+1}: {roi.name} - Type not implemented {roi.roitype}")
+            print(roi)
 
     return data
