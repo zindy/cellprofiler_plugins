@@ -93,12 +93,12 @@ its own label."""
         )
 
         self.wants_to_split_fragments = Binary(
-            "Split composite ROI fragments?",
+            "Split ROI fragments?",
             False,
             doc="""\
-Select *Yes* to give composite fragments a different label.
+Select *Yes* to give each fragment from a composite ROI its own label.
 
-By default, all the fragments belonging to the same composite ROI are
+By default, the fragments held within a particular ROI are all
 given the same label."""
             % globals(),
         )
