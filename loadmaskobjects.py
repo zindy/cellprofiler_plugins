@@ -215,6 +215,7 @@ def create_polygon(shape,poly_verts):
 
 def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, single_label=False, split_fragments=False):
 
+    #The output image, based on the given dimensions
     data = np.zeros(dimensions, dtype=int)
 
     #Strip the extension, we'll check if there is a zip or a roi...
@@ -244,6 +245,9 @@ def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, 
     #initial label
     label = 1
 
+    #The dimensions of the image
+    ydim,xdim = dimensions
+
     # Now we can look through the rois:
     for i, roi in enumerate(roi_list):
         if roi.roitype in [ROI_TYPE.POLYGON, ROI_TYPE.FREEHAND, ROI_TYPE.OVAL, ROI_TYPE.RECT]:
@@ -255,13 +259,49 @@ def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, 
                 list_vertices = [roi.coordinates()]
 
             for vertices in list_vertices:
-                data = np.where( create_polygon(dimensions,vertices), label, data)
+                # First we calculate the bounding box for the vertices
+                mi = np.min(vertices,axis=0).astype(int)
+                ma = np.max(vertices,axis=0).astype(int)
+
+                # Check the polygon is completely outside the output image (skip it)
+                if mi[0] >= ydim or mi[1] >= xdim or ma[0] < 0 or mi[1] < 0: 
+                    print("  is completely outside!")
+                    continue
+
+                # We trim the polygon's vertices outside the output image canvas
+                if mi[0] < 0:
+                    mi[0] = 0
+                if mi[1] < 0:
+                    mi[1] = 0
+                if ma[0] > ydim-1:
+                    ma[0] = ydim-1
+                if ma[1] > xdim-1:
+                    ma[1] = xdim-1
+                    
+                # The dimensions of the array that will just fit the vertices (bounding box)
+                # And that will also fit the bounding box inside the output image:                
+                slice_dimensions = ma-mi
+                
+                # And here we offset the vertices using the adjusted mi
+                vertices -= mi
+
+                # Then clip the vertices so they fit inside the bounding box
+                vertices[:,0] = np.where(vertices[:,0]<0,0,vertices[:,0])
+                vertices[:,1] = np.where(vertices[:,1]<0,0,vertices[:,1])
+                vertices[:,0] = np.where(vertices[:,0]>ydim-1,ydim-1,vertices[:,0])
+                vertices[:,1] = np.where(vertices[:,1]>xdim-1,xdim-1,vertices[:,1])
+                
+                # bitmap of the polygon (bound by the slice dimensions)
+                polygon_array = create_polygon(slice_dimensions,vertices)
+
+                # Alter the output image data slice concerned with the current ROI polygon
+                data[mi[0]:ma[0],mi[1]:ma[1]] = np.where(polygon_array, label, data[mi[0]:ma[0],mi[1]:ma[1]])
 
                 if single_label == False and split_fragments == True:
                     label += 1
 
             if roi.composite == True:
-                #Either the label value was 1 or it was already incremented
+                # Either the label value was 1 or it was already incremented
                 continue
 
             if single_label == False:
