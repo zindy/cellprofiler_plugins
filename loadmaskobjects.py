@@ -264,7 +264,7 @@ def load_masks(filename, dimensions, priority_zip=True, missing_is_blank=False, 
                 ma = np.max(vertices,axis=0).astype(int)
 
                 # Check the polygon is completely outside the output image (skip it)
-                if mi[0] >= ydim or mi[1] >= xdim or ma[0] < 0 or mi[1] < 0: 
+                if mi[0] >= ydim or mi[1] >= xdim or ma[0] < 0 or ma[1] < 0: 
                     print("  is completely outside!")
                     continue
 
